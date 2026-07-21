@@ -1,108 +1,304 @@
-# YouTube Comment Agent
+# 🤖 YouTube Comment Agent
 
-An AI agent that monitors your YouTube channel for new comments, drafts replies using an LLM, and posts them only after your approval. Built with LangGraph, featuring persistent long-term memory and a human-in-the-loop approval flow.
+An AI-powered YouTube comment moderation agent that automatically monitors your YouTube channel, generates contextual replies using an LLM, and lets you **approve, edit, or reject** every response before it is posted.
 
-## Features
+Built with **LangGraph**, **FastAPI**, **Streamlit**, and **Supabase**, the application provides persistent memory, human-in-the-loop review, and configurable AI behavior.
 
-- **Automatic comment discovery** — scans all videos on your channel for new comments (no manual video ID entry)
-- **AI-drafted replies** — Groq-hosted LLM drafts a contextual reply to each comment
-- **Human-in-the-loop approval** — every reply pauses for your review before posting; nothing goes out without explicit approval
-- **Long-term memory** — tracks which comments have already been handled, so the agent never re-processes or double-replies to the same comment across restarts
-- **Persistent execution state** — built on LangGraph's checkpointer, so an in-progress review survives a server restart
-- **Web UI** — Streamlit dashboard to review pending drafts and approve/reject with one click
+---
 
-## Architecture
+## ✨ Features
 
+- 🎥 **Automatic Comment Discovery**
+  - Scans your YouTube channel for new comments.
+  - No need to manually enter video IDs.
+
+- 🤖 **AI-Generated Replies**
+  - Generates contextual replies using a Groq-hosted LLM.
+
+- 👨‍💻 **Human-in-the-Loop Review**
+  - Every generated reply pauses for review.
+  - Nothing is posted automatically.
+
+- ✏️ **Edit Draft Replies**
+  - Modify AI-generated replies before posting.
+
+- ✅ **Approve or Reject**
+  - Approve to publish immediately.
+  - Reject to discard the reply.
+
+- ⚙️ **Configurable AI Settings**
+  - Update the system prompt directly from the UI.
+  - Customize the assistant's tone and behavior without changing code.
+
+- 🧠 **Long-Term Memory**
+  - Keeps track of processed comments.
+  - Prevents duplicate replies even after application restarts.
+
+- 💾 **Persistent Execution State**
+  - LangGraph Checkpointer resumes interrupted workflows after restarts.
+
+- 🌐 **Interactive Dashboard**
+  - Built with Streamlit for reviewing comments and managing replies.
+
+---
+
+# 🏗️ Architecture
+
+```text
+                 Streamlit Community Cloud
+                         │
+                         ▼
+                 Streamlit Dashboard
+                         │
+                         ▼
+                  FastAPI Backend
+                         │
+                  LangGraph Agent
+                         │
+        ┌────────────────┼────────────────┐
+        │                │                │
+        ▼                ▼                ▼
+ YouTube Data API     Groq LLM      Supabase PostgreSQL
+      (OAuth2)                      ├── PostgresSaver
+                                    └── PostgresStore
 ```
-Streamlit UI  →  FastAPI backend  →  LangGraph agent
-                                          │
-                                          ├── YouTube Data API v3 (read/reply)
-                                          ├── Groq LLM (draft generation)
-                                          └── Supabase Postgres
-                                                ├── Checkpointer (paused run state)
-                                                └── Store (long-term memory / dedup)
+
+---
+
+# 🔄 Agent Workflow
+
+```text
+Check for New Comments
+            │
+            ▼
+Retrieve Unhandled Comments
+            │
+            ▼
+Generate AI Reply
+            │
+            ▼
+Pause for Human Review
+            │
+      ┌─────┼──────────┐
+      │     │          │
+      ▼     ▼          ▼
+ Approve  Edit      Reject
+      │     │          │
+      │     ▼          │
+      │ Approve        │
+      ▼                ▼
+Post Reply      Mark as Handled
+      │
+      ▼
+Store in Long-Term Memory
 ```
 
-**Agent flow:** discover new comment → draft reply → pause (`interrupt()`) for human review → on approval, post reply and mark as handled in memory.
+---
 
-## Tech Stack
+# 🛠️ Tech Stack
 
-- **Orchestration:** LangGraph (`StateGraph`, `interrupt()`, `PostgresSaver`, `PostgresStore`)
-- **LLM:** Groq (`openai/gpt-oss-20b`)
-- **Backend:** FastAPI
-- **Frontend:** Streamlit
-- **Database:** Supabase (Postgres)
-- **APIs:** YouTube Data API v3 (OAuth 2.0)
-- **Deployment:** Docker, Render
+### AI & Agent
 
-## Project Structure
+- LangGraph
+- LangChain
+- Groq (`openai/gpt-oss-20b`)
 
-```
+### Backend
+
+- FastAPI
+
+### Frontend
+
+- Streamlit
+
+### Database
+
+- Supabase PostgreSQL
+- LangGraph PostgresSaver
+- LangGraph PostgresStore
+
+### APIs
+
+- YouTube Data API v3
+- Google OAuth 2.0
+
+### Deployment
+
+- Docker
+- Render (Backend)
+- Streamlit Community Cloud (Frontend)
+
+---
+
+# 📁 Project Structure
+
+```text
 youtube-comment-agent/
+│
 ├── src/
-│   ├── graph.py            # LangGraph StateGraph definition
-│   ├── nodes.py             # fetch_comment, draft_reply, review, post_reply nodes
-│   ├── state.py              # AgentState (TypedDict)
-│   ├── youtube_client.py    # YouTube API: read comments, post replies, list videos
-│   ├── memory.py             # Long-term memory (Postgres Store)
-│   ├── checkpointer.py       # Execution persistence (Postgres Saver)
-│   └── llm_utils.py          # LLM client + prompt template
+│   ├── graph.py
+│   ├── nodes.py
+│   ├── state.py
+│   ├── youtube_client.py
+│   ├── llm_utils.py
+│   ├── memory.py
+│   ├── checkpointer.py
+│   └── settings.py
+│
 ├── ui/
-│   └── app.py                # Streamlit approval dashboard
-├── api.py                    # FastAPI entrypoint
-├── client.py                 # API client helpers used by the Streamlit UI
-├── requirements.txt
+│   └── app.py
+│
+├── api.py
+├── client.py
 ├── Dockerfile
-└── .env                      # API keys, DB connection string (not committed)
+├── requirements.txt
+├── .env
+└── README.md
 ```
 
-## Setup
+---
 
-### 1. Google Cloud / YouTube API
-1. Create a project at [console.cloud.google.com](https://console.cloud.google.com), enable **YouTube Data API v3**
-2. Configure the OAuth consent screen (External, add yourself as a test user), scope: `youtube.force-ssl`
-3. Create OAuth credentials (Desktop app), download as `credentials.json`
-4. Run the token script once to authenticate and generate `token.pickle`
+# 🚀 Setup
 
-### 2. Supabase (Postgres)
-1. Create a free project at [supabase.com](https://supabase.com)
-2. Grab the connection string via the **Connect** button → Session pooler
-3. Add it to `.env` as `DATABASE_URL`
+## 1. Clone the Repository
 
-### 3. Environment variables
-Create a `.env` file:
-```
-GROQ_API_KEY=your_groq_key
-DATABASE_URL=your_supabase_connection_string
-```
-
-### 4. Install & run
 ```bash
-pip install -r requirements.txt --break-system-packages
+git clone https://github.com/yourusername/youtube-comment-agent.git
 
-# Terminal 1 — backend
+cd youtube-comment-agent
+```
+
+---
+
+## 2. Enable YouTube Data API
+
+1. Create a project in Google Cloud Console.
+2. Enable **YouTube Data API v3**.
+3. Configure the OAuth Consent Screen.
+4. Create OAuth Desktop Credentials.
+5. Authenticate once locally to obtain a Refresh Token.
+
+---
+
+## 3. Environment Variables
+
+Create a `.env` file.
+
+```env
+GROQ_API_KEY=
+
+DATABASE_URL=
+
+GOOGLE_CLIENT_ID=
+
+GOOGLE_CLIENT_SECRET=
+
+GOOGLE_REFRESH_TOKEN=
+```
+
+---
+
+## 4. Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+---
+
+## 5. Run the Backend
+
+```bash
 uvicorn api:app --reload
+```
 
-# Terminal 2 — frontend
+---
+
+## 6. Run the Frontend
+
+```bash
 streamlit run ui/app.py
 ```
 
-## How It Works
+---
 
-1. Click **"Check for new comments"** in the UI — this hits `POST /poll`
-2. The agent scans your channel's videos, finds unhandled comments, and drafts a reply for each
-3. Each draft appears in the dashboard with the video title and original comment
-4. Click **Approve** to post the reply, or **Reject** to discard it — either way, the comment is marked as handled and won't be processed again
+# 📋 How It Works
 
-## Known Limitations
+1. Click **Check for New Comments**.
+2. The agent scans all uploaded videos.
+3. New comments are discovered.
+4. The LLM generates a contextual reply.
+5. The workflow pauses for review.
+6. You can:
+   - ✅ Approve
+   - ✏️ Edit & Approve
+   - ❌ Reject
+7. Processed comments are stored in long-term memory.
+8. The same comment is never processed twice.
 
-- `/poll` processes comments synchronously — with a high comment volume, this would need to move to an async/background-job design
-- Pagination isn't yet implemented for channels with more than ~10 videos or 100+ comments per video
-- No automated guardrails yet (e.g. filtering spam/vulgar comments before drafting) — currently all comments go through human review
+---
 
-## Roadmap
+# ⚙️ Settings
 
-- [ ] Guardrails to auto-filter spam/inappropriate comments
-- [ ] Edit-and-regenerate option instead of binary approve/reject
-- [ ] Async polling + pagination for larger channels
-- [ ] Optional auto-reply mode with confidence-based escalation to human review
+The application includes a Settings page where you can configure the AI without modifying the source code.
+
+Available options include:
+
+- System Prompt
+- Assistant Tone
+- Reply Style
+- Custom Instructions
+
+Changes are applied immediately to future reply generations.
+
+---
+
+# 💾 Memory
+
+The application uses LangGraph's persistent storage.
+
+### Checkpointer
+
+Stores the execution state so interrupted approval workflows can resume after server restarts.
+
+### Long-Term Memory
+
+Stores processed comment IDs to ensure comments are never replied to twice.
+
+---
+
+# 🌍 Deployment
+
+| Component | Platform |
+|-----------|----------|
+| Frontend | Streamlit Community Cloud |
+| Backend | Render |
+| Database | Supabase PostgreSQL |
+| Containerization | Docker |
+
+---
+
+# 🔮 Future Improvements
+
+- Spam detection
+- Pagination for large channels
+- Background polling
+- Async processing
+- Multiple YouTube accounts
+- Confidence-based automatic replies
+- Reply analytics dashboard
+
+---
+
+# 📄 License
+
+This project is licensed under the MIT License.
+
+---
+
+## 👨‍💻 Author
+
+**Rajesh Chalise**
+
+- GitHub: https://github.com/ChaliseRajesh19
+- Portfolio: https://chaliserajesh.com.np
