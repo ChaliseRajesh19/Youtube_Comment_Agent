@@ -1,15 +1,27 @@
-# youtube_client.py
-import pickle
+import os
 import requests
+from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request as GoogleRequest
+
+SCOPES = ["https://www.googleapis.com/auth/youtube.force-ssl"]
 
 
 def get_session():
-    creds = pickle.load(open("token.pickle", "rb"))
-    if creds.expired and creds.refresh_token:
-        creds.refresh(GoogleRequest())
+    creds = Credentials(
+        token=None,
+        refresh_token=os.environ["GOOGLE_REFRESH_TOKEN"],
+        token_uri="https://oauth2.googleapis.com/token",
+        client_id=os.environ["GOOGLE_CLIENT_ID"],
+        client_secret=os.environ["GOOGLE_CLIENT_SECRET"],
+        scopes=SCOPES,
+    )
+
+    # Get a fresh access token
+    creds.refresh(GoogleRequest())
+
     session = requests.Session()
     session.headers.update({"Authorization": f"Bearer {creds.token}"})
+
     return session
 
 
