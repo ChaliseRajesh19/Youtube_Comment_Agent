@@ -12,3 +12,4 @@ class AgentState(TypedDict):
     comment_text: str
     draft_reply: str
     approved: bool
+

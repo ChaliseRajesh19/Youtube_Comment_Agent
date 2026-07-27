@@ -1,4 +1,4 @@
-#!/home/chalise/AI-ML/GenAI/GenAI_Langchain_Projects/Youtube_Comment_Agent/venv/bin/python3.12
+#!/home/chalise/AI-ML/GenAI/GenAI_Langchain_Projects/Youtube_Comment_Agent/venv/bin/python
 # -*- coding: utf-8 -*-
 
 import sys
