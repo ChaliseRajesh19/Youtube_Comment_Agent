@@ -1,6 +1,6 @@
 import requests
 
-API = "http://localhost:8000"
+API = "https://youtube-comment-agent-sbeo.onrender.com"
 
 
 def get_comments():
