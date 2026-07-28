@@ -75,3 +75,14 @@ def reply_to_comment(comment_id, reply_text):
     r = session.post(f"{BASE}/comments", params={"part": "snippet"}, json=body)
     r.raise_for_status()
     print(f"Replied to comment {comment_id} with: {reply_text}")
+
+
+if __name__ == "__main__":
+    # Example usage
+    playlist_id = get_uploads_playlist_id()
+    videos = get_channel_videos(playlist_id)
+    for video_id, video_title in videos:
+        comments = get_new_comments(video_id)
+        for comment_id, comment_text in comments:
+            print(f"Comment ID: {comment_id}, Text: {comment_text}")
+            # reply_to_comment(comment_id, "Thank you for your comment!")
