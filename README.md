@@ -125,7 +125,6 @@ Guardrail Check (keyword filter + LLM classifier)
 
 ### Database
 
-- Supabase PostgreSQL
 - LangGraph PostgresSaver
 - LangGraph PostgresStore
 
@@ -297,7 +296,7 @@ Stores the status of every processed comment (`replied`, `rejected`, or `blocked
 |-----------|----------|
 | Frontend | Streamlit Community Cloud |
 | Backend | Render |
-| Database | Supabase PostgreSQL |
+| Database | Langchain Postgres|
 | Containerization | Docker |
 
 ---
