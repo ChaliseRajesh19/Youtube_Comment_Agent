@@ -7,6 +7,7 @@ from src.youtube_client import (
 from src.state import AgentState
 from src.llm_utils import call_llm, make_system_prompt
 from src.memory import get_postgres_store
+from src.llm_utils import classify_comment
 
 namespace = ("replied_comments",)
 
@@ -33,6 +34,29 @@ def fetch_comment_node(state: AgentState):
     return {"comment_id": None, "comment_text": None, "video_title": None}
 
 
+BLOCKED_KEYWORDS = [
+    "click here",
+    "subscribe",
+    "buy now",
+    "free money",
+    "visit my channel",
+]
+
+
+def guardrials_check_node(state: AgentState):
+    comment_text = state["comment_text"].lower()
+    if any(keyword in comment_text for keyword in BLOCKED_KEYWORDS):
+        store.put(namespace, state["comment_id"], {"status": "blocked"})
+        return {"comment_id": None, "comment_text": None, "video_title": None}
+
+    classification = classify_comment(comment_text)
+    if classification in ("TOXIC", "SPAM"):
+        store.put(namespace, state["comment_id"], {"status": "blocked"})
+        return {"comment_id": None, "comment_text": None, "video_title": None}
+
+    return {}
+
+
 def draft_reply_node(state: AgentState):
     comment_text = state["comment_text"]
 
@@ -51,4 +75,3 @@ def post_reply_node(state: AgentState):
     reply_to_comment(state["comment_id"], state["draft_reply"])
     store.put(namespace, state["comment_id"], {"status": "replied"})
     return {"approved": True}
-

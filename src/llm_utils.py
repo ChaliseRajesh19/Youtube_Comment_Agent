@@ -29,3 +29,18 @@ def call_llm():
         temperature=0.3,
     )
     return llm
+
+
+def classify_comment(comment_text):
+    SYSTEM_PROMPT = f"""Classify this YouTube comment into exactly one word: SAFE, TOXIC, or SPAM.
+
+- SAFE: genuine, on-topic, even if critical or negative in a normal way
+- TOXIC: hate speech, harassment, slurs, threats
+- SPAM: promotional, scam links, bot-like, unrelated self-promotion
+
+Comment: "{comment_text}"
+
+Classification (one word only):"""
+    llm = call_llm()
+    result = llm.invoke(SYSTEM_PROMPT)
+    return result.content.strip().upper()
