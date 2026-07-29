@@ -1,8 +1,8 @@
 # 🤖 YouTube Comment Agent
 
-An AI-powered YouTube comment moderation agent that automatically monitors your YouTube channel, generates contextual replies using an LLM, and lets you **approve, edit, or reject** every response before it is posted.
+An AI-powered YouTube comment moderation agent that automatically monitors your YouTube channel, filters out spam and toxic comments, generates contextual replies using an LLM, and lets you **approve, edit, or reject** every response before it is posted.
 
-Built with **LangGraph**, **FastAPI**, **Streamlit**, and **Supabase**, the application provides persistent memory, human-in-the-loop review, and configurable AI behavior.
+Built with **LangGraph**, **FastAPI**, **Streamlit**, and **Supabase**, the application provides persistent memory, guardrails, human-in-the-loop review, and configurable AI behavior.
 
 ---
 
@@ -11,6 +11,10 @@ Built with **LangGraph**, **FastAPI**, **Streamlit**, and **Supabase**, the appl
 - 🎥 **Automatic Comment Discovery**
   - Scans your YouTube channel for new comments.
   - No need to manually enter video IDs.
+
+- 🛡️ **Guardrails (Spam & Toxicity Filtering)**
+  - Two-layer defense: a keyword filter catches obvious spam instantly, and an LLM classifier catches subtler cases (toxic or hostile comments).
+  - Blocked comments are logged with a reason and skipped — they never reach the drafting or review stage.
 
 - 🤖 **AI-Generated Replies**
   - Generates contextual replies using a Groq-hosted LLM.
@@ -31,7 +35,7 @@ Built with **LangGraph**, **FastAPI**, **Streamlit**, and **Supabase**, the appl
   - Customize the assistant's tone and behavior without changing code.
 
 - 🧠 **Long-Term Memory**
-  - Keeps track of processed comments.
+  - Keeps track of processed comments (replied, rejected, or blocked).
   - Prevents duplicate replies even after application restarts.
 
 - 💾 **Persistent Execution State**
@@ -59,8 +63,8 @@ Built with **LangGraph**, **FastAPI**, **Streamlit**, and **Supabase**, the appl
         │                │                │
         ▼                ▼                ▼
  YouTube Data API     Groq LLM      Supabase PostgreSQL
-      (OAuth2)                      ├── PostgresSaver
-                                    └── PostgresStore
+      (OAuth2)      (Draft + Classify)  ├── PostgresSaver
+                                        └── PostgresStore
 ```
 
 ---
@@ -74,23 +78,30 @@ Check for New Comments
 Retrieve Unhandled Comments
             │
             ▼
-Generate AI Reply
+Guardrail Check (keyword filter + LLM classifier)
             │
-            ▼
-Pause for Human Review
-            │
-      ┌─────┼──────────┐
-      │     │          │
-      ▼     ▼          ▼
- Approve  Edit      Reject
-      │     │          │
-      │     ▼          │
-      │ Approve        │
-      ▼                ▼
-Post Reply      Mark as Handled
-      │
-      ▼
-Store in Long-Term Memory
+      ┌─────┴─────┐
+      │           │
+   Blocked     Passed
+      │           │
+      ▼           ▼
+  Skip &      Generate AI Reply
+  Log Reason        │
+                     ▼
+              Pause for Human Review
+                     │
+               ┌─────┼──────────┐
+               │     │          │
+               ▼     ▼          ▼
+            Approve  Edit    Reject
+               │     │          │
+               │     ▼          │
+               │ Approve        │
+               ▼                ▼
+         Post Reply      Mark as Handled
+               │
+               ▼
+         Store in Long-Term Memory
 ```
 
 ---
@@ -102,6 +113,7 @@ Store in Long-Term Memory
 - LangGraph
 - LangChain
 - Groq (`openai/gpt-oss-20b`)
+- Guardrails: keyword filtering + LLM-based content classification (SAFE / TOXIC / SPAM)
 
 ### Backend
 
@@ -227,14 +239,15 @@ streamlit run ui/app.py
 1. Click **Check for New Comments**.
 2. The agent scans all uploaded videos.
 3. New comments are discovered.
-4. The LLM generates a contextual reply.
-5. The workflow pauses for review.
-6. You can:
+4. Each comment passes through a guardrail check — a keyword filter, then an LLM classifier. Spam or toxic comments are blocked and logged; nothing further happens to them.
+5. For comments that pass, the LLM generates a contextual reply.
+6. The workflow pauses for review.
+7. You can:
    - ✅ Approve
    - ✏️ Edit & Approve
    - ❌ Reject
-7. Processed comments are stored in long-term memory.
-8. The same comment is never processed twice.
+8. Processed comments (replied, rejected, or blocked) are stored in long-term memory.
+9. The same comment is never processed twice.
 
 ---
 
@@ -253,6 +266,17 @@ Changes are applied immediately to future reply generations.
 
 ---
 
+# 🛡️ Guardrails
+
+Comments are checked before they ever reach reply generation, using a two-layer, cheapest-check-first approach:
+
+1. **Keyword filter** — deterministic, near-zero latency. Catches obvious spam patterns (promotional links, "subscribe to my channel," etc.) without spending an LLM call.
+2. **LLM classifier** — for comments that pass the keyword filter, a classification call labels the comment `SAFE`, `TOXIC`, or `SPAM`. Only `SAFE` comments proceed to drafting.
+
+Blocked comments are recorded in long-term memory with a reason, so they're never re-evaluated or accidentally processed twice.
+
+---
+
 # 💾 Memory
 
 The application uses LangGraph's persistent storage.
@@ -263,7 +287,7 @@ Stores the execution state so interrupted approval workflows can resume after se
 
 ### Long-Term Memory
 
-Stores processed comment IDs to ensure comments are never replied to twice.
+Stores the status of every processed comment (`replied`, `rejected`, or `blocked`) to ensure comments are never handled twice.
 
 ---
 
@@ -280,7 +304,6 @@ Stores processed comment IDs to ensure comments are never replied to twice.
 
 # 🔮 Future Improvements
 
-- Spam detection
 - Pagination for large channels
 - Background polling
 - Async processing
